@@ -9,6 +9,7 @@ import { Alert, StatusBar, StyleSheet, useColorScheme, View } from 'react-native
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Device } from 'react-native-ble-plx';
 import { bleService } from './src/ble/BleService';
+import { uuidsEqual } from './src/ble/uuid';
 import {
   LUMEX_NOTIFY_CHARACTERISTIC_UUID,
   LUMEX_SERVICE_UUID,
@@ -47,22 +48,19 @@ function AppContent() {
     try {
       const connected = await bleService.connect(device.id);
       const services = await bleService.discoverGatt(connected);
-      const writeMatch = services
-        .flatMap(s => s.characteristics)
-        .find(
-          c =>
-            c.serviceUUID.toLowerCase() === LUMEX_SERVICE_UUID &&
-            c.uuid.toLowerCase() === LUMEX_WRITE_CHARACTERISTIC_UUID,
-        );
+      const allCharacteristics = services.flatMap(s => s.characteristics);
+      const writeMatch = allCharacteristics.find(
+        c =>
+          uuidsEqual(c.serviceUUID, LUMEX_SERVICE_UUID) &&
+          uuidsEqual(c.uuid, LUMEX_WRITE_CHARACTERISTIC_UUID),
+      );
 
       if (writeMatch) {
-        const notifyMatch = services
-          .flatMap(s => s.characteristics)
-          .find(
-            c =>
-              c.serviceUUID.toLowerCase() === LUMEX_SERVICE_UUID &&
-              c.uuid.toLowerCase() === LUMEX_NOTIFY_CHARACTERISTIC_UUID,
-          );
+        const notifyMatch = allCharacteristics.find(
+          c =>
+            uuidsEqual(c.serviceUUID, LUMEX_SERVICE_UUID) &&
+            uuidsEqual(c.uuid, LUMEX_NOTIFY_CHARACTERISTIC_UUID),
+        );
         setScreen({
           name: 'control',
           device: connected,
