@@ -1,16 +1,32 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * Lumex LDM-6432-BLE4 BLE control app
  *
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Device } from 'react-native-ble-plx';
+import { bleService } from './src/ble/BleService';
 import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+  LUMEX_NOTIFY_CHARACTERISTIC_UUID,
+  LUMEX_SERVICE_UUID,
+  LUMEX_WRITE_CHARACTERISTIC_UUID,
+} from './src/ezdisplay/knownDevice';
+import { ScanScreen } from './src/screens/ScanScreen';
+import { InspectorScreen, CharacteristicRef } from './src/screens/InspectorScreen';
+import { ControlScreen } from './src/screens/ControlScreen';
+
+type Screen =
+  | { name: 'scan' }
+  | { name: 'inspect'; device: Device }
+  | {
+      name: 'control';
+      device: Device;
+      writeChar: CharacteristicRef;
+      notifyChar: CharacteristicRef | null;
+    };
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -25,14 +41,75 @@ function App() {
 
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
+  const [screen, setScreen] = useState<Screen>({ name: 'scan' });
+
+  const handleSelectDevice = useCallback(async (device: Device) => {
+    try {
+      const connected = await bleService.connect(device.id);
+      const services = await bleService.discoverGatt(connected);
+      const writeMatch = services
+        .flatMap(s => s.characteristics)
+        .find(
+          c =>
+            c.serviceUUID.toLowerCase() === LUMEX_SERVICE_UUID &&
+            c.uuid.toLowerCase() === LUMEX_WRITE_CHARACTERISTIC_UUID,
+        );
+
+      if (writeMatch) {
+        const notifyMatch = services
+          .flatMap(s => s.characteristics)
+          .find(
+            c =>
+              c.serviceUUID.toLowerCase() === LUMEX_SERVICE_UUID &&
+              c.uuid.toLowerCase() === LUMEX_NOTIFY_CHARACTERISTIC_UUID,
+          );
+        setScreen({
+          name: 'control',
+          device: connected,
+          writeChar: { serviceUUID: writeMatch.serviceUUID, uuid: writeMatch.uuid },
+          notifyChar: notifyMatch
+            ? { serviceUUID: notifyMatch.serviceUUID, uuid: notifyMatch.uuid }
+            : null,
+        });
+      } else {
+        setScreen({ name: 'inspect', device: connected });
+      }
+    } catch (e) {
+      Alert.alert('Connection failed', e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const handleReady = useCallback(
+    (device: Device, writeChar: CharacteristicRef, notifyChar: CharacteristicRef | null) => {
+      setScreen({ name: 'control', device, writeChar, notifyChar });
+    },
+    [],
+  );
+
+  let content;
+  if (screen.name === 'scan') {
+    content = <ScanScreen onSelectDevice={handleSelectDevice} />;
+  } else if (screen.name === 'inspect') {
+    content = (
+      <InspectorScreen
+        device={screen.device}
+        onBack={() => setScreen({ name: 'scan' })}
+        onReady={(writeChar, notifyChar) => handleReady(screen.device, writeChar, notifyChar)}
+      />
+    );
+  } else {
+    content = (
+      <ControlScreen
+        device={screen.device}
+        writeChar={screen.writeChar}
+        notifyChar={screen.notifyChar}
+        onBack={() => setScreen({ name: 'inspect', device: screen.device })}
+      />
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
+    <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>{content}</View>
   );
 }
 
