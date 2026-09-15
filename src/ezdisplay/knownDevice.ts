@@ -9,3 +9,8 @@ export const LUMEX_WRITE_CHARACTERISTIC_UUID = '0000fff1-0000-1000-8000-00805f9b
 // Untested: the only notifiable characteristic in the same service: likely
 // carries the 'E' ready-byte the datasheet describes, but not yet confirmed.
 export const LUMEX_NOTIFY_CHARACTERISTIC_UUID = '0000fff4-0000-1000-8000-00805f9b34fb';
+
+// iOS (CoreBluetooth) requires pairing to subscribe to notifications on this
+// module and will prompt for a passkey the first time; Android/Linux (BlueZ)
+// never required pairing at all for the same operations. Confirmed passkey: 123456.
+// Not needed for LUMEX_WRITE_CHARACTERISTIC_UUID alone, only for notify.
