@@ -114,6 +114,10 @@ function AppContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // Explicit background so default-black text (no color set) stays
+    // readable regardless of system light/dark mode - several screens
+    // don't set a text color and were invisible against a dark theme.
+    backgroundColor: '#fff',
   },
 });
 
