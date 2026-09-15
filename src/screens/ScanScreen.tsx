@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import type { Device } from 'react-native-ble-plx';
 import { bleService } from '../ble/BleService';
+import { LUMEX_DEVICE_NAME_PREFIX } from '../ezdisplay/knownDevice';
 
 interface Props {
-  onSelectDevice: (device: Device) => void;
+  onSelectDevice: (device: Device) => void | Promise<void>;
 }
 
 export function ScanScreen({ onSelectDevice }: Props) {
@@ -20,6 +21,8 @@ export function ScanScreen({ onSelectDevice }: Props) {
   const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [autoConnecting, setAutoConnecting] = useState<string | null>(null);
+  const autoSelectedRef = useRef(false);
 
   useEffect(() => {
     let stopScan: (() => void) | undefined;
@@ -43,6 +46,21 @@ export function ScanScreen({ onSelectDevice }: Props) {
             next.set(device.id, device);
             return next;
           });
+
+          if (
+            !autoSelectedRef.current &&
+            device.name?.toUpperCase().startsWith(LUMEX_DEVICE_NAME_PREFIX)
+          ) {
+            // Don't stop scanning here: if the connect attempt below fails
+            // (e.g. the iOS pairing prompt gets dismissed), the device list
+            // stays live so the user can retry by tapping it manually
+            // instead of being stuck on a dead scan screen.
+            autoSelectedRef.current = true;
+            setAutoConnecting(device.name ?? device.id);
+            Promise.resolve(onSelectDevice(device)).finally(() =>
+              setAutoConnecting(null),
+            );
+          }
         },
         err => setError(err.message),
       );
@@ -52,7 +70,7 @@ export function ScanScreen({ onSelectDevice }: Props) {
       cancelled = true;
       stopScan?.();
     };
-  }, []);
+  }, [onSelectDevice]);
 
   const sortedDevices = useMemo(() => {
     const list = Array.from(devices.values());
@@ -88,6 +106,12 @@ export function ScanScreen({ onSelectDevice }: Props) {
         find yours by proximity/RSSI, then confirm it in the Inspector.
       </Text>
       {error && <Text style={styles.error}>{error}</Text>}
+      {autoConnecting && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator />
+          <Text style={styles.hint}>Connecting to {autoConnecting}...</Text>
+        </View>
+      )}
       {!ready && !error && (
         <View style={styles.loadingRow}>
           <ActivityIndicator />

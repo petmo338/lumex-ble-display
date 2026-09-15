@@ -4,6 +4,11 @@
 // reaches the display's AT command parser - the others (fff2/fff3/fff5,
 // and the separate f000ffc0 TI-pattern service) accepted writes without
 // error but had no effect on the display.
+// The advertised local name truncates to "LUM232882" (length-budget in the
+// ADV packet), but the full GAP device name read after connecting is
+// "LUMEX232882" - match on the common prefix to catch either form.
+export const LUMEX_DEVICE_NAME_PREFIX = 'LUM';
+
 export const LUMEX_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
 export const LUMEX_WRITE_CHARACTERISTIC_UUID = '0000fff1-0000-1000-8000-00805f9b34fb';
 // Untested: the only notifiable characteristic in the same service: likely
