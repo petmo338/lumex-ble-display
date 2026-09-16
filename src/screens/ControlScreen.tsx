@@ -12,6 +12,7 @@ import type { Device } from 'react-native-ble-plx';
 import { bleService } from '../ble/BleService';
 import * as cmd from '../ezdisplay/commands';
 import { COLOR } from '../ezdisplay/color';
+import { PRESET_RENDERS } from '../ezdisplay/render';
 import type { CharacteristicRef } from './InspectorScreen';
 
 interface Props {
@@ -63,12 +64,32 @@ export function ControlScreen({ device, writeChar, notifyChar, onBack }: Props) 
     }
   };
 
+  // Presets are precomputed (see ezdisplay/render.ts), so this just replays
+  // an already-built command sequence in order - one tap, no retyping.
+  const sendPresetCommands = async (commands: string[]) => {
+    for (const command of commands) {
+      await send(command);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Pressable onPress={onBack}>
         <Text style={styles.back}>{'< Back to inspector'}</Text>
       </Pressable>
       <Text style={styles.title}>{device.name ?? device.id}</Text>
+
+      <Text style={styles.section}>Presets</Text>
+      <View style={styles.presetGrid}>
+        {PRESET_RENDERS.map(({ preset, commands }) => (
+          <Pressable
+            key={preset.id}
+            style={styles.presetButton}
+            onPress={() => sendPresetCommands(commands)}>
+            <Text style={styles.presetButtonText}>{preset.label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       <View style={styles.row}>
         <Text>Write with response</Text>
@@ -165,6 +186,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   buttonText: { color: 'white', fontWeight: '500' },
+  presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  presetButton: {
+    backgroundColor: '#333',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minWidth: '30%',
+    alignItems: 'center',
+  },
+  presetButtonText: { color: 'white', fontWeight: '600', fontSize: 12, textAlign: 'center' },
   textInput: {
     borderWidth: 1,
     borderColor: '#ccc',
